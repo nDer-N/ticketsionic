@@ -1,32 +1,27 @@
-import { createRouter, createWebHistory } from '@ionic/vue-router';
-import { RouteRecordRaw } from 'vue-router';
-import TabsPage from '../views/TabsPage.vue'
+import { createRouter, createWebHistory } from '@ionic/vue-router'
+import { RouteRecordRaw } from 'vue-router'
+import { auth } from '@/firebase'
+import { onAuthStateChanged } from 'firebase/auth'
 
 const routes: Array<RouteRecordRaw> = [
   {
     path: '/',
-    redirect: '/tabs/tab1'
+    redirect: '/login'
+  },
+  {
+    path: '/login',
+    component: () => import('../LoginPage.vue')
   },
   {
     path: '/tabs/',
-    component: TabsPage,
+    component: () => import('@/views/TabsPage.vue'),
+    meta: { requiresAuth: true },
     children: [
-      {
-        path: '',
-        redirect: '/tabs/tab1'
-      },
-      {
-        path: 'tab1',
-        component: () => import('@/views/Tab1Page.vue')
-      },
-      {
-        path: 'tab2',
-        component: () => import('@/views/Tab2Page.vue')
-      },
-      {
-        path: 'tab3',
-        component: () => import('@/views/Tab3Page.vue')
-      }
+      { path: '',          redirect: '/tabs/claves' },
+      { path: 'claves',   component: () => import('@/views/ClavesTab.vue') },
+      { path: 'usuarios', component: () => import('@/views/UsuariosTab.vue') },
+      { path: 'agregar',  component: () => import('@/views/AgregarClavesTab.vue') },
+      { path: 'mapa',     component: () => import('@/views/MapaTab.vue') },
     ]
   }
 ]
@@ -34,6 +29,16 @@ const routes: Array<RouteRecordRaw> = [
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes
+})
+
+// Guard de autenticación
+router.beforeEach((to, _from, next) => {
+  if (!to.meta.requiresAuth) return next()
+
+  onAuthStateChanged(auth, user => {
+    if (user) next()
+    else next('/login')
+  })
 })
 
 export default router
