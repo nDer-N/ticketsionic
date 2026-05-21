@@ -100,6 +100,7 @@ async function handleLogout() {
 
 .claves-list {
   padding: 16px;
+  
 }
 
 .clave-item {
