@@ -38,6 +38,18 @@ import {
 
 import { onIonViewDidEnter } from '@ionic/vue'
 import L from 'leaflet'
+
+import iconUrl from 'leaflet/dist/images/marker-icon.png'
+import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png'
+import shadowUrl from 'leaflet/dist/images/marker-shadow.png'
+
+delete (L.Icon.Default.prototype as any)._getIconUrl
+
+L.Icon.Default.mergeOptions({
+  iconUrl,
+  iconRetinaUrl,
+  shadowUrl,
+})
 import { Chart, registerables } from 'chart.js'
 import { db } from '@/firebase'
 import { ref as dbRef, get } from 'firebase/database'
