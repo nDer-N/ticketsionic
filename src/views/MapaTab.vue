@@ -37,115 +37,94 @@ import {
 
 
 import { onIonViewDidEnter } from '@ionic/vue'
-
-
-
 import L from 'leaflet'
-
+import { Chart, registerables } from 'chart.js'
 import { db } from '@/firebase'
+import { ref as dbRef, get } from 'firebase/database'
 
-import {
-  ref as dbRef,
-  get
-} from 'firebase/database'
+Chart.register(...registerables)
 
 let map: L.Map | null = null
 
+// Guardamos los datos por coordenada para usarlos en el evento
+const datosUbicacion: Record<string, { total: number, historico: number[] }> = {}
+
 async function cargarMapa() {
+  map = L.map('map').setView([20.6736, -103.344], 13)
 
-  // Crear mapa centrado en Guadalajara
-  map = L.map('map').setView(
-    [20.6736, -103.344],
-    13
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map)
 
-    
-  )
-
-  // Capa del mapa
-  L.tileLayer(
-
-    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-
-    {
-      attribution: '&copy; OpenStreetMap contributors'
-    }
-
-  ).addTo(map)
-
-  // Leer claves de Firebase
-  const snapshot = await get(
-
-    dbRef(db, 'Key')
-
-  )
-
+  const snapshot = await get(dbRef(db, 'Key'))
   if (!snapshot.exists()) return
 
   const data = snapshot.val()
-
-  // Agrupar lecturas por coordenadas
-  const ubicaciones: Record<string, number> = {}
+  const ubicaciones: Record<string, number[]> = {}
 
   Object.values(data).forEach((item: any) => {
-
-    if (
-
-      item.Status === 'used' &&
-      item.Latitud &&
-      item.Longitud
-
-    ) {
-
+    if (item.Status === 'used' && item.Latitud && item.Longitud) {
       const key = `${item.Latitud},${item.Longitud}`
-
-      if (!ubicaciones[key]) {
-
-        ubicaciones[key] = 0
-
-      }
-
-      ubicaciones[key]++
-
+      if (!ubicaciones[key]) ubicaciones[key] = []
+      // Ejemplo: agrupa por hora si tienes timestamp, aquí usamos conteo simple
+      ubicaciones[key].push(1)
     }
-
   })
 
-  // Crear markers
-  Object.entries(ubicaciones).forEach(
+  Object.entries(ubicaciones).forEach(([coords, lecturas]) => {
+    const [lat, lng] = coords.split(',').map(Number)
+    const total = lecturas.length
 
-    ([coords, total]) => {
+    // ID único por marcador para encontrar el canvas después
+    const canvasId = `chart-${lat.toString().replace('.', '')}-${lng.toString().replace('.', '')}`
 
-      const [lat, lng] = coords
-        .split(',')
-        .map(Number)
+    const popupContent = `
+      <div style="width:220px">
+        <strong>Torniquete</strong><br/>
+        Claves leídas: <b>${total}</b>
+        <canvas id="${canvasId}" width="200" height="120"></canvas>
+      </div>
+    `
 
-      L.marker([lat, lng])
+    const marker = L.marker([lat, lng]).addTo(map!)
+    marker.bindPopup(popupContent)
 
-        .addTo(map)
+    // 🔑 Aquí está el truco: renderizar el chart DESPUÉS de que el popup abre
+    marker.on('popupopen', () => {
+      const canvas = document.getElementById(canvasId) as HTMLCanvasElement
+      if (!canvas) return
 
-        .bindPopup(
+      // Evitar duplicar charts si el popup se abre varias veces
+      if ((canvas as any)._chartInstance) {
+        (canvas as any)._chartInstance.destroy()
+      }
 
-          `
-            <strong>Torniquete</strong>
-            <br/>
-            Claves leídas: ${total}
-          `
+      const chart = new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: lecturas.map((_, i) => `L${i + 1}`),
+          datasets: [{
+            label: 'Lecturas',
+            data: lecturas,
+            backgroundColor: '#3b82f6'
+          }]
+        },
+        options: {
+          responsive: false,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true } }
+        }
+      })
 
-        )
-
-    }
-
-  )
-
+      ;(canvas as any)._chartInstance = chart
+    })
+  })
 }
 
-onIonViewDidEnter(async () => { 
-    if (!map) { await cargarMapa() }
-    setTimeout(() => { 
-        if (map) {
-             map.invalidateSize() } 
-            }, 300) 
-        })
+onIonViewDidEnter(async () => {
+  if (!map) await cargarMapa()
+  setTimeout(() => { map?.invalidateSize() }, 300)
+})
 
 </script>
 
