@@ -170,6 +170,9 @@ async function handleLogin() {
   --inner-padding-end: 0;
   border-radius: 10px;
   border: 1.5px solid #dde3ec;
+  --color: #2d3e50;
+  --placeholder-color: #aab4c0
+  --placeholder-opacity:1;
 }
 
 .error-msg {
